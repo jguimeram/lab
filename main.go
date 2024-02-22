@@ -15,6 +15,7 @@ func handleConnection(conn net.Conn) {
 
 	//Add the new connection to the clients slice
 	clients = append(clients, conn)
+
 	//Welcome message
 	msg := "Welcome to the server"
 	n, err := conn.Write([]byte(msg))
@@ -38,6 +39,7 @@ func handleConnection(conn net.Conn) {
 			received := string(buffer[:n])
 			fmt.Printf("Received message from %v: %s", conn.RemoteAddr(), received)
 		}
+
 	}
 
 }
