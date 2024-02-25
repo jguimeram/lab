@@ -4,10 +4,21 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"time"
 )
 
 var clients []net.Conn
+
+func welcomeMessage(conn net.Conn) {
+	msg := "Welcome to the server\n"
+	n, err := conn.Write([]byte(msg))
+	if err != nil {
+		log.Printf("Message not send to %v: %v", conn.RemoteAddr(), err)
+		return
+	}
+	if n < len(msg) {
+		log.Printf("Message not successfuly written: %d out of %d", n, len(msg))
+	}
+}
 
 func handleConnection(conn net.Conn) {
 
@@ -17,15 +28,6 @@ func handleConnection(conn net.Conn) {
 	clients = append(clients, conn)
 
 	//Welcome message
-	msg := "Welcome to the server"
-	n, err := conn.Write([]byte(msg))
-	if err != nil {
-		log.Printf("Message not send to %v: %v", conn.RemoteAddr(), err)
-		return
-	}
-	if n < len(msg) {
-		log.Printf("Message not successfuly written: %d out of %d", n, len(msg))
-	}
 
 	//Read get the data that client send
 	buffer := make([]byte, 1024)
@@ -79,10 +81,7 @@ func main() {
 
 		//A new goroutine is started using an anonymous function (go func() { ... }()).
 		go func() {
-			for {
-				listClients()
-				time.Sleep(10 * time.Second)
-			}
+			welcomeMessage(conn)
 		}()
 
 	}
