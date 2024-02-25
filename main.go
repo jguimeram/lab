@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"net"
@@ -9,6 +10,8 @@ import (
 var clients []net.Conn
 
 func welcomeMessage(conn net.Conn) {
+	//Welcome message
+
 	msg := "Welcome to the server\n"
 	n, err := conn.Write([]byte(msg))
 	if err != nil {
@@ -27,12 +30,13 @@ func handleConnection(conn net.Conn) {
 	//Add the new connection to the clients slice
 	clients = append(clients, conn)
 
-	//Welcome message
-
 	//Read get the data that client send
 	buffer := make([]byte, 1024)
+	reader := bufio.NewReader(conn)
+
 	for {
-		n, err := conn.Read(buffer) //in loop to read all the messages is receiveng
+		//n, err := conn.Read(buffer) //in loop to read all the messages is receiveng
+		n, err := reader.Read(buffer)
 		if err != nil {
 			log.Printf("Error reading from connection %v: %v", conn.RemoteAddr(), err)
 			return
@@ -44,13 +48,6 @@ func handleConnection(conn net.Conn) {
 
 	}
 
-}
-
-func listClients() {
-	fmt.Println("Clients connected:")
-	for i, client := range clients {
-		fmt.Printf("%d, %v\n", i, client.RemoteAddr())
-	}
 }
 
 func main() {
@@ -68,18 +65,14 @@ func main() {
 	fmt.Println("Listening on port 3000")
 
 	for {
-		//permite al cliente conectar y devuelve objeto net.Conn
-		// Accept va en un loop infinito para poder atender múltiples conexiones. De otro modo, tal y como acepta una, bloquea y ya no recibe más.
 
 		conn, err := ln.Accept() //net.Conn This object represents the connection between the server and a client.
 		if err != nil {
 			fmt.Println("Connection refused")
 		}
 
-		//for each connection a routine handleConnection is created
 		go handleConnection(conn)
 
-		//A new goroutine is started using an anonymous function (go func() { ... }()).
 		go func() {
 			welcomeMessage(conn)
 		}()
