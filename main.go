@@ -23,7 +23,27 @@ func welcomeMessage(conn net.Conn) {
 	}
 }
 
-func client(conn net.Conn) {
+func messages(conn net.Conn, buffer []byte, n int) {
+	writer := bufio.NewWriter(conn)
+
+	n, err := writer.Write(buffer[:n])
+	if err != nil {
+		log.Printf("Error writing from connection %v: %v", conn.RemoteAddr(), err)
+		return
+	}
+
+	if n > 0 {
+		sent := string(buffer[:n])
+		fmt.Printf("Writing message from %v: %s", conn.RemoteAddr(), sent)
+	}
+
+	err = writer.Flush()
+	if err != nil {
+		fmt.Printf("Error flushing: %v", err)
+	}
+}
+
+func client(conn net.Conn, buffer []byte) {
 
 	defer conn.Close()
 
@@ -31,15 +51,15 @@ func client(conn net.Conn) {
 	clients = append(clients, conn)
 
 	//Read get the data that client send
-	buffer := make([]byte, 1024)
+
 	reader := bufio.NewReader(conn)
 
 	//Write into the conn
-	writer := bufio.NewWriter(conn)
 
 	for {
 		//n, err := conn.Read(buffer) //in loop to read all the messages is receiveng
 		n, err := reader.Read(buffer)
+
 		if err != nil {
 			log.Printf("Error reading from connection %v: %v", conn.RemoteAddr(), err)
 			return
@@ -48,20 +68,9 @@ func client(conn net.Conn) {
 			received := string(buffer[:n])
 			fmt.Printf("Received message from %v: %s", conn.RemoteAddr(), received)
 		}
-		n, err = writer.Write(buffer[:n])
-		if err != nil {
-			log.Printf("Error writing from connection %v: %v", conn.RemoteAddr(), err)
-			return
-		}
-		if n > 0 {
-			sent := string(buffer[:n])
-			fmt.Printf("Writing message from %v: %s", conn.RemoteAddr(), sent)
-		}
 
-		err = writer.Flush()
-		if err != nil {
-			fmt.Printf("Error flushing: %v", err)
-		}
+		//TODO: send messages to other clients
+		go messages(conn, buffer, n)
 
 	}
 
@@ -88,11 +97,12 @@ func main() {
 			fmt.Println("Connection refused")
 		}
 
-		go client(conn)
-
 		go func() {
 			welcomeMessage(conn)
 		}()
 
+		buffer := make([]byte, 1024)
+
+		go client(conn, buffer)
 	}
 }
