@@ -23,7 +23,7 @@ func welcomeMessage(conn net.Conn) {
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func client(conn net.Conn) {
 
 	defer conn.Close()
 
@@ -33,6 +33,9 @@ func handleConnection(conn net.Conn) {
 	//Read get the data that client send
 	buffer := make([]byte, 1024)
 	reader := bufio.NewReader(conn)
+
+	//Write into the conn
+	writer := bufio.NewWriter(conn)
 
 	for {
 		//n, err := conn.Read(buffer) //in loop to read all the messages is receiveng
@@ -44,6 +47,20 @@ func handleConnection(conn net.Conn) {
 		if n > 0 {
 			received := string(buffer[:n])
 			fmt.Printf("Received message from %v: %s", conn.RemoteAddr(), received)
+		}
+		n, err = writer.Write(buffer[:n])
+		if err != nil {
+			log.Printf("Error writing from connection %v: %v", conn.RemoteAddr(), err)
+			return
+		}
+		if n > 0 {
+			sent := string(buffer[:n])
+			fmt.Printf("Writing message from %v: %s", conn.RemoteAddr(), sent)
+		}
+
+		err = writer.Flush()
+		if err != nil {
+			fmt.Printf("Error flushing: %v", err)
 		}
 
 	}
@@ -71,7 +88,7 @@ func main() {
 			fmt.Println("Connection refused")
 		}
 
-		go handleConnection(conn)
+		go client(conn)
 
 		go func() {
 			welcomeMessage(conn)
