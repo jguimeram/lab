@@ -33,7 +33,7 @@ func handleConnnection(conn net.Conn) {
 
 	input := bufio.NewScanner(conn)
 	for input.Scan() {
-		messages <- newMessage(input.Text(), conn)
+		messages <- newMessage(": "+input.Text(), conn)
 	}
 
 	//built in method that deletes an item from a map
