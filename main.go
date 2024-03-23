@@ -7,63 +7,59 @@ import (
 	"net"
 )
 
-func welcomeMessage(conn net.Conn) {
-	//Welcome message
+var clients = make(map[string]net.Conn)
+var leaving = make(chan message)
+var messages = make(chan message)
 
-	msg := "Welcome to the server\n"
-	n, err := conn.Write([]byte(msg))
-	if err != nil {
-		log.Printf("Message not send to %v: %v", conn.RemoteAddr(), err)
-		return
-	}
-	if n < len(msg) {
-		log.Printf("Message not successfuly written: %d out of %d", n, len(msg))
+type message struct {
+	text    string
+	address string
+}
+
+func newMessage(msg string, conn net.Conn) message {
+	addr := conn.RemoteAddr().String()
+	return message{
+		text:    addr + msg,
+		address: addr,
 	}
 }
 
-func handleConnnection(conn net.Conn, buffer []byte) {
+func handleConnnection(conn net.Conn) {
 
 	defer conn.Close()
+	clients[conn.RemoteAddr().String()] = conn
 
-	//Read get the data that client send
+	messages <- newMessage(" joined", conn)
 
-	reader := bufio.NewReader(conn)
-
-	//Write into the conn
-
-	for {
-		//n, err := conn.Read(buffer) //in loop to read all the messages is receiveng
-		n, err := reader.Read(buffer)
-
-		if err != nil {
-			log.Printf("Error reading from connection %v: %v", conn.RemoteAddr(), err)
-			return
-		}
-		if n > 0 {
-			received := string(buffer[:n])
-			fmt.Printf("Received message from %v: %s", conn.RemoteAddr(), received)
-		}
-
-		writer := bufio.NewWriter(conn)
-
-		n, err = writer.Write(buffer[:n])
-		if err != nil {
-			log.Printf("Error writing from connection %v: %v", conn.RemoteAddr(), err)
-			return
-		}
-
-		if n > 0 {
-			sent := string(buffer[:n])
-			fmt.Printf("Writing message from %v: %s", conn.RemoteAddr(), sent)
-		}
-
-		err = writer.Flush()
-		if err != nil {
-			fmt.Printf("Error flushing: %v", err)
-		}
-
+	input := bufio.NewScanner(conn)
+	for input.Scan() {
+		messages <- newMessage(input.Text(), conn)
 	}
 
+	//built in method that deletes an item from a map
+	delete(clients, conn.RemoteAddr().String())
+
+	leaving <- newMessage(" has left", conn)
+}
+
+func broadcaster() {
+	for {
+		select {
+		case msg := <-messages:
+			for _, conn := range clients {
+				if msg.address == conn.RemoteAddr().String() {
+					continue
+				}
+				fmt.Fprintln(conn, msg.text) // NOTE: ignoring network errors
+			}
+
+		case msg := <-leaving:
+			for _, conn := range clients {
+				fmt.Fprintln(conn, msg.text) // NOTE: ignoring network errors
+			}
+
+		}
+	}
 }
 
 func main() {
@@ -80,19 +76,36 @@ func main() {
 
 	fmt.Println("Listening on port 3000")
 
+	go broadcaster()
+
 	for {
 
 		conn, err := ln.Accept() //net.Conn This object represents the connection between the server and a client.
 		if err != nil {
 			fmt.Println("Connection refused")
+			continue
 		}
 
 		go func() {
 			welcomeMessage(conn)
 		}()
 
-		buffer := make([]byte, 1024)
+		// buffer := make([]byte, 1024)
 
-		go handleConnnection(conn, buffer)
+		go handleConnnection(conn)
+	}
+}
+
+func welcomeMessage(conn net.Conn) {
+	//Welcome message
+
+	msg := "Welcome to the server\n"
+	n, err := conn.Write([]byte(msg))
+	if err != nil {
+		log.Printf("Message not send to %v: %v", conn.RemoteAddr(), err)
+		return
+	}
+	if n < len(msg) {
+		log.Printf("Message not successfuly written: %d out of %d", n, len(msg))
 	}
 }
